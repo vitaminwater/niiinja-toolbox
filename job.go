@@ -2,6 +2,7 @@ package niiinja
 
 import (
 	"errors"
+	"reflect"
 
 	tachikoma "github.com/vitaminwater/tachikoma-toolbox"
 	"github.com/vitaminwater/tachikoma-toolbox/timeseries"
@@ -21,7 +22,7 @@ func (j CurrencyConvertJob) Run(i interface{}) error {
 	} else if t.GetBase() != j.from && t.GetCounter() != j.from {
 		return nil
 	}
-	return j.Run(i)
+	return j.Job.Run(i)
 }
 
 func ConversionSelector(from, to string, s tachikoma.Selector) tachikoma.Selector {
@@ -30,25 +31,24 @@ func ConversionSelector(from, to string, s tachikoma.Selector) tachikoma.Selecto
 		var ct CurrencyTicker
 		var ok bool
 		if ct, ok = o.(CurrencyTicker); ok == false {
-			return errors.New("CurrencyConvertJob required a CurrencyTicker object")
+			tachikoma.Fatal(errors.New("CurrencyConvertJob required a CurrencyTicker object"))
 		}
 		o = s(o)
-		if f, ok := o.(float64); ok == true {
-			var mult float64 = 1
-			if ct.GetBase() == from {
-				mult = 1 / v
-			} else if ct.GetCounter() == from {
-				mult = v
-			}
-			return f * mult
-		} else {
+		if reflect.TypeOf(o).Kind() != reflect.Float64 {
 			tachikoma.Fatal(errors.New("ConversionSelector requires a float64 value"))
 		}
-		return o
+		f := reflect.ValueOf(o).Float()
+		var mult float64 = 1
+		if ct.GetBase() == from {
+			mult = 1 / v
+		} else if ct.GetCounter() == from {
+			mult = v
+		}
+		return f * mult
 	}
 }
 
-func NewCurrencyConvertJob(from, to string, timeserie timeseries.Timeserie, labels timeseries.Labels, selector tachikoma.Selector) tachikoma.Job {
+func NewCurrencyConvertJob(name, from, to string, timeserie timeseries.Timeserie, labels timeseries.Labels, selector tachikoma.Selector) tachikoma.Job {
 	labels = labels.Clone()
 	labels["base"] = labelTickerFn(func(t CurrencyTicker) string {
 		if t.GetBase() == from {
@@ -62,6 +62,7 @@ func NewCurrencyConvertJob(from, to string, timeserie timeseries.Timeserie, labe
 		}
 		return t.GetCounter()
 	})
+	timeserie.Name = name
 	j := timeseries.NewJob(timeserie, labels, ConversionSelector(from, to, selector))
 
 	cc := CurrencyConvertJob{

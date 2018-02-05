@@ -46,8 +46,7 @@ func TickerJobGenerator(timeserie timeseries.Timeserie, labels timeseries.Labels
 		convs := strings.Split(tag, ",")
 		for _, conv := range convs {
 			cs := strings.Split(conv, ":")
-			timeserie.Name = cs[0]
-			j := NewCurrencyConvertJob(cs[1], cs[2], timeserie, labels, selector)
+			j := NewCurrencyConvertJob(cs[0], cs[1], cs[2], timeserie, labels, selector)
 			jobs = append(jobs, j)
 		}
 	}
